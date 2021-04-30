@@ -6,9 +6,6 @@ from layer import GroupNormalization
 
 # basically a simplified copy of main.py
 
-strategy = tf.distribute.MirroredStrategy()
-
-
 def residual_block(x, downsample, filters, norm=tf.keras.layers.BatchNormalization):
     """
     inspired by https://towardsdatascience.com/building-a-resnet-in-keras-e8f1322a49ba
@@ -35,40 +32,39 @@ def build_model(norm=tf.keras.layers.BatchNormalization):
     also inspired by https://towardsdatascience.com/building-a-resnet-in-keras-e8f1322a49ba
     :return:
     """
-    with strategy.scope():
-        inputs = tf.keras.Input(shape=(32, 32, 3))
-        num_filters = 64
+    inputs = tf.keras.Input(shape=(32, 32, 3))
+    num_filters = 64
 
-        if norm == GroupNormalization:
-            t = norm(G=3)(inputs)
-        else:
-            t = norm()(inputs)
+    if norm == GroupNormalization:
+        t = norm(G=3)(inputs)
+    else:
+        t = norm()(inputs)
 
-        t = tf.keras.layers.Conv2D(kernel_size=3,
-                                   strides=1,
-                                   filters=num_filters,
-                                   padding="same", activation="relu")(t)
-        t = norm()(t)
+    t = tf.keras.layers.Conv2D(kernel_size=3,
+                               strides=1,
+                               filters=num_filters,
+                               padding="same", activation="relu")(t)
+    t = norm()(t)
 
-        num_blocks_list = [2, 5]
-        for i in range(len(num_blocks_list)):
-            num_blocks = num_blocks_list[i]
-            for j in range(num_blocks):
-                t = residual_block(t, downsample=(j == 0 and i != 0), filters=num_filters, norm=norm)
-            num_filters *= 2
+    num_blocks_list = [2, 5]
+    for i in range(len(num_blocks_list)):
+        num_blocks = num_blocks_list[i]
+        for j in range(num_blocks):
+            t = residual_block(t, downsample=(j == 0 and i != 0), filters=num_filters, norm=norm)
+        num_filters *= 2
 
-        t = tf.keras.layers.AveragePooling2D(4)(t)
-        t = tf.keras.layers.Flatten()(t)
-        outputs = tf.keras.layers.Dense(10)(t)
+    t = tf.keras.layers.AveragePooling2D(4)(t)
+    t = tf.keras.layers.Flatten()(t)
+    outputs = tf.keras.layers.Dense(10)(t)
 
 
-        model = tf.keras.Model(inputs, outputs)
+    model = tf.keras.Model(inputs, outputs)
 
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(),
-            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-            metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]
-        )
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]
+    )
 
     return model
 

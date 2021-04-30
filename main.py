@@ -1,6 +1,6 @@
-import tensorflow as tf
 import json
-from matplotlib import pyplot as plt
+
+import tensorflow as tf
 
 from layer import GroupNormalization
 
@@ -41,15 +41,15 @@ def build_model(norm=tf.keras.layers.BatchNormalization):
         t = norm(G=3)(inputs)
     else:
         t = norm()(inputs)
-    
+
     t = tf.keras.layers.Conv2D(kernel_size=3,
                                strides=1,
                                filters=num_filters,
                                padding="same", activation="relu")(t)
-     t = norm()(t)
+    t = norm()(t)
 
-     num_blocks_list = [2, 5, 5, 2]
-     for i in range(len(num_blocks_list)):
+    num_blocks_list = [2, 5, 5, 2]
+    for i in range(len(num_blocks_list)):
         num_blocks = num_blocks_list[i]
         for j in range(num_blocks):
             t = residual_block(t, downsample=(j == 0 and i != 0), filters=num_filters, norm=norm)
@@ -58,7 +58,6 @@ def build_model(norm=tf.keras.layers.BatchNormalization):
     t = tf.keras.layers.AveragePooling2D(4)(t)
     t = tf.keras.layers.Flatten()(t)
     outputs = tf.keras.layers.Dense(10)(t)
-
 
     model = tf.keras.Model(inputs, outputs)
 
