@@ -15,11 +15,13 @@ def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
     which is not ideal for 32x32 images
     :return: compiled model
     """
+
     def block(x, filters):
         y = tf.keras.layers.Conv2D(filters, kernel_size=3, padding="same", strides=2)(x)
         y = tf.keras.layers.LeakyReLU()(y)
         y = norm()(y)
         y = tf.keras.layers.Conv2D(filters, kernel_size=3, padding="same")(y)
+        x = tf.keras.layers.Conv2D(filters, kernel_size=1, padding="same", strides=2)(x)  # shortcut connection
         y = tf.keras.layers.Add()([x, y])
         y = tf.keras.layers.LeakyReLU()(y)
         y = norm()(y)
