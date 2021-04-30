@@ -1,45 +1,50 @@
 import pandas as pd
 import shutil
+import os
 
 import tensorflow as tf
 import numpy as np
 
 from layer import GroupNormalization
 
-# 4 GPU training on BWunicluster
-strategy = tf.distribute.MirroredStrategy()
 
-# clear logdir
-shutil.rmtree("logs")
-
-
-def build_model(norm=tf.keras.layers.BatchNormalization):
+def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
     """
+    builds what is basically a fully-convolutional ResNet.
+    The "regular" resnets are rather aggressive about reducing the feature map sizes,
+    which is not ideal for 32x32 images
     :return: compiled model
     """
+    def block(x, filters):
+        y = tf.keras.layers.Conv2D(filters, kernel_size=3, padding="same", strides=2)(x)
+        y = tf.keras.layers.LeakyReLU()(y)
+        y = norm()(y)
+        y = tf.keras.layers.Conv2D(filters, kernel_size=3, padding="same")(y)
+        y = tf.keras.layers.Add()([x, y])
+        y = tf.keras.layers.LeakyReLU()(y)
+        y = norm()(y)
+        return y
+
     inp = tf.keras.Input((32, 32, 3))
-    x = tf.keras.layers.Conv2D(256, 3, padding="same")(inp)
+    x = inp
+    for f in [64, 128, 256, 512]:
+        x = block(x, f)
+
+    # output block
+    x = tf.keras.layers.Conv2D(512, kernel_size=3, padding="same", stride=2)(x)
     x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.MaxPool2D()(x)
-    x = norm()(x)
-    x = tf.keras.layers.Conv2D(128, 3, padding="same")(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.MaxPool2D()(x)
-    x = norm()(x)
-    x = tf.keras.layers.Conv2D(64, 3, padding="same")(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.MaxPool2D()(x)
-    x = norm()(x)
-    x = tf.keras.layers.Conv2D(32, 3, padding="same")(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.MaxPool2D()(x)
-    x = norm()(x)
+    x = norm(x)
+
+    # final 1x1 convolution to achieve n_filters = n_classes
+    x = tf.keras.layers.Conv2D(10, kernel_size=1, padding="same")(x)
+
+    # Flatten() squeezes away the singleton dimensions
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(10)(x)
+
     model = tf.keras.Model(inputs=inp, outputs=x)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
     )
@@ -47,46 +52,55 @@ def build_model(norm=tf.keras.layers.BatchNormalization):
     return model
 
 
-((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
-train_imgs = train_imgs / 255.0
-test_imgs = test_imgs / 255.0
+if __name__ == "__main__":
 
-train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
-test_data = tf.data.Dataset.from_tensor_slices((test_imgs, test_lbls))
+    # 4 GPU training on BWunicluster
+    strategy = tf.distribute.MirroredStrategy()
 
-res = {'seed': [],
-       'batch_size': [],
-       'norm': [],
-       'loss_curve': [],
-       'accuracy': []}
+    # clear logdir
+    shutil.rmtree("logs")
+    os.mkdir("logs")
 
-for batch_size in [32, 16, 8, 4, 2]:
-    for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
-        for seed in [42, 43, 44, 45, 46]:
-            model_id = f"BS{batch_size}-{'GN' if norm == GroupNormalization else 'BN'}-S{seed}"
-            tboard = tf.keras.callbacks.TensorBoard(log_dir=f"logs/{model_id}")
+    ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
+    train_imgs = train_imgs / 255.0
+    test_imgs = test_imgs / 255.0
 
-            # seed
-            np.random.seed(seed)
-            tf.random.set_seed(seed)
+    train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
+    test_data = tf.data.Dataset.from_tensor_slices((test_imgs, test_lbls))
 
-            with strategy.scope():
-                model = build_model(norm)
+    res = {'seed': [],
+           'batch_size': [],
+           'norm': [],
+           'loss_curve': [],
+           'accuracy': []}
 
-            train_data_batch = train_data.batch(batch_size)
-            test_data_batch = test_data.batch(batch_size)
+    for batch_size in [32, 16, 8, 4, 2]:
+        for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
+            for seed in [42, 43, 44, 45, 46]:
+                model_id = f"BS{batch_size}-{'GN' if norm == GroupNormalization else 'BN'}-S{seed}"
+                tboard = tf.keras.callbacks.TensorBoard(log_dir=f"logs/{model_id}")
 
-            model.fit(train_data_batch, epochs=50, callbacks=[tboard])
+                # seed
+                np.random.seed(seed)
+                tf.random.set_seed(seed)
 
-            _, acc = model.evaluate(test_data_batch)
+                with strategy.scope():
+                    model = build_model(norm)
 
-            res['seed'].append(seed)
-            res['batch_size'].append(batch_size)
-            res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
-            res['accuracy'].append(acc)
+                train_data_batch = train_data.batch(batch_size)
+                test_data_batch = test_data.batch(batch_size)
 
-            pd.DataFrame(res).to_csv("results.csv", index=False)
+                model.fit(train_data_batch, epochs=100, callbacks=[tboard])
 
-            model.save(
-                f"models/{model_id}"
-            )
+                _, acc = model.evaluate(test_data_batch)
+
+                res['seed'].append(seed)
+                res['batch_size'].append(batch_size)
+                res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
+                res['accuracy'].append(acc)
+
+                pd.DataFrame(res).to_csv("results.csv", index=False)
+
+                model.save(
+                    f"models/{model_id}"
+                )
