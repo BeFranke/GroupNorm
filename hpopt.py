@@ -10,8 +10,8 @@ import numpy as np
 A short search for the optimal learning rate. To keep closer to He & Wu, parameter selection is done for 
 a network with BatchNorm (Wu & He did not optimize parameters for their new Normalization).
 Further, I do not optimize learning rates separately for each batch size, as Wu & He did not do this either.
-For both, hyperparameter search and evaluation, training budget was 100 epochs. Wu & He used 200 for ImageNet, 
-which is a lot more complex. 
+For both, hyperparameter search and evaluation, training budget was 100 epochs. Wu & He used 200 epochs for the more
+complex ImageNet.
 """
 
 
@@ -40,7 +40,7 @@ for seed in seeds:
         np.random.seed(seed)
         tf.random.set_seed(seed)
         with strategy.scope():
-            model = build_model(BatchNormalization)
+            model = build_model(BatchNormalization, lr=lr)
 
         model.fit(train_data, epochs=100)
         _, acc = model.evaluate(val_data)

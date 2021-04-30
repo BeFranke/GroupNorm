@@ -33,7 +33,7 @@ def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
         x = block(x, f)
 
     # output block
-    x = tf.keras.layers.Conv2D(512, kernel_size=3, padding="same", stride=2)(x)
+    x = tf.keras.layers.Conv2D(512, kernel_size=3, padding="same", strides=2)(x)
     x = tf.keras.layers.LeakyReLU()(x)
     x = norm(x)
 
