@@ -35,7 +35,7 @@ def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
     # output block
     x = tf.keras.layers.Conv2D(512, kernel_size=3, padding="same", strides=2)(x)
     x = tf.keras.layers.LeakyReLU()(x)
-    x = norm(x)
+    x = norm()(x)
 
     # final 1x1 convolution to achieve n_filters = n_classes
     x = tf.keras.layers.Conv2D(10, kernel_size=1, padding="same")(x)
