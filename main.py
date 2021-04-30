@@ -11,33 +11,28 @@ strategy = tf.distribute.MirroredStrategy()
 
 def build_model(norm=tf.keras.layers.BatchNormalization):
     """
-    load MobileNet, optionally replace all BN layers with GN
-    I use MobileNet instead of MobileNetV2 because MobileNetV2 has extremely unconventional feature map dimensions
-    (e.g. 144), that makes Grouping them in even Groups that are not too small much more challenging and therefore makes
-    it harder to compare the results to teh original paper
     :return: compiled model
     """
-    model = tf.keras.applications.MobileNet(input_shape=(32, 32, 3), weights=None, classes=10,
-                                            classifier_activation=None)
-    # model = tf.keras.applications.ResNet50(input_shape=(32, 32, 3), weights=None, classes=10,
-    #                                        classifier_activation=None)
-    if norm == GroupNormalization:
-        # layer replacements as shown in:
-        # https://stackoverflow.com/questions/49492255/how-to-replace-or-insert-intermediate-layer-in-keras-model
-        layers = [l for l in model.layers]
-        x = layers[0].output
-        replaced = 0
-        for i in range(1, len(layers)):
-            if isinstance(layers[i], tf.keras.layers.BatchNormalization):
-                x = GroupNormalization()(x)
-                # x = tf.keras.layers.LayerNormalization()(x)
-                replaced += 1
-            else:
-                x = layers[i](x)
-
-        print(f"replaced {replaced} BatchNorm layers!")
-
-        model = tf.keras.Model(layers[0].input, x)
+    inp = tf.keras.Input((32, 32, 3))
+    x = tf.keras.layers.Conv2D(256, 3, padding="same")(inp)
+    x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.MaxPool2D()(x)
+    x = norm()(x)
+    x = tf.keras.layers.Conv2D(128, 3, padding="same")(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.MaxPool2D()(x)
+    x = norm()(x)
+    x = tf.keras.layers.Conv2D(64, 3, padding="same")(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.MaxPool2D()(x)
+    x = norm()(x)
+    x = tf.keras.layers.Conv2D(32, 3, padding="same")(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.MaxPool2D()(x)
+    x = norm()(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(10)(x)
+    model = tf.keras.Model(inputs=inp, outputs=x)
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
@@ -63,20 +58,21 @@ res = {'seed': [],
 
 for batch_size in [32, 16, 8, 4, 2]:
     for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
+    # for norm in [tf.keras.layers.BatchNormalization]:
         for seed in [42, 43, 44, 45, 46]:
             # seed
             np.random.seed(seed)
             tf.random.set_seed(seed)
 
             with strategy.scope():
-                model_bn = build_model(norm)
+                model = build_model(norm)
 
             train_data_batch = train_data.batch(batch_size)
             test_data_batch = test_data.batch(batch_size)
 
-            history = model_bn.fit(train_data_batch, epochs=50)
+            history = model.fit(train_data_batch, epochs=50)
 
-            _, acc = model_bn.evaluate(test_data_batch)
+            _, acc = model.evaluate(test_data_batch)
 
             res['seed'].append(seed)
             res['batch_size'].append(batch_size)
