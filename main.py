@@ -1,6 +1,7 @@
 import json
 
 import tensorflow as tf
+import numpy as np
 
 from layer import GroupNormalization
 
@@ -8,58 +9,35 @@ from layer import GroupNormalization
 strategy = tf.distribute.MirroredStrategy()
 
 
-def residual_block(x, downsample, filters, norm=tf.keras.layers.BatchNormalization):
-    """
-    inspired by https://towardsdatascience.com/building-a-resnet-in-keras-e8f1322a49ba
-    :param x: input tensor
-    :param downsample: True if image resolution should be halved
-    :param filters: number of filters
-    :return: output tensor
-    """
-    y = tf.keras.layers.Conv2D(filters, kernel_size=3, strides=int(downsample) + 1,
-                               padding="same", activation="relu")(x)
-    y = norm()(y)
-    y = tf.keras.layers.Conv2D(filters, kernel_size=3, strides=1, padding="same")(y)
-    if downsample:
-        x = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=2, padding="same")(x)
-
-    out = tf.keras.layers.Add()([x, y])
-    out = tf.keras.layers.ReLU()(out)
-    out = norm()(out)
-    return out
-
-
 def build_model(norm=tf.keras.layers.BatchNormalization):
     """
-    also inspired by https://towardsdatascience.com/building-a-resnet-in-keras-e8f1322a49ba
-    :return:
+    load MobileNet, optionally replace all BN layers with GN
+    I use MobileNet instead of MobileNetV2 because MobileNetV2 has extremely unconventional feature map dimensions
+    (e.g. 144), that makes Grouping them in even Groups that are not too small much more challenging and therefore makes
+    it harder to compare the results to teh original paper
+    :return: compiled model
     """
-    inputs = tf.keras.Input(shape=(32, 32, 3))
-    num_filters = 64
-
+    model = tf.keras.applications.MobileNet(input_shape=(32, 32, 3), weights=None, classes=10,
+                                            classifier_activation=None)
+    # model = tf.keras.applications.ResNet50(input_shape=(32, 32, 3), weights=None, classes=10,
+    #                                        classifier_activation=None)
     if norm == GroupNormalization:
-        t = norm(G=3)(inputs)
-    else:
-        t = norm()(inputs)
+        # layer replacements as shown in:
+        # https://stackoverflow.com/questions/49492255/how-to-replace-or-insert-intermediate-layer-in-keras-model
+        layers = [l for l in model.layers]
+        x = layers[0].output
+        replaced = 0
+        for i in range(1, len(layers)):
+            if isinstance(layers[i], tf.keras.layers.BatchNormalization):
+                x = GroupNormalization()(x)
+                # x = tf.keras.layers.LayerNormalization()(x)
+                replaced += 1
+            else:
+                x = layers[i](x)
 
-    t = tf.keras.layers.Conv2D(kernel_size=3,
-                               strides=1,
-                               filters=num_filters,
-                               padding="same", activation="relu")(t)
-    t = norm()(t)
+        print(f"replaced {replaced} BatchNorm layers!")
 
-    num_blocks_list = [2, 5, 5, 2]
-    for i in range(len(num_blocks_list)):
-        num_blocks = num_blocks_list[i]
-        for j in range(num_blocks):
-            t = residual_block(t, downsample=(j == 0 and i != 0), filters=num_filters, norm=norm)
-        num_filters *= 2
-
-    t = tf.keras.layers.AveragePooling2D(4)(t)
-    t = tf.keras.layers.Flatten()(t)
-    outputs = tf.keras.layers.Dense(10)(t)
-
-    model = tf.keras.Model(inputs, outputs)
+        model = tf.keras.Model(layers[0].input, x)
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
@@ -86,6 +64,10 @@ res = {'seed': [],
 for batch_size in [32, 16, 8, 4, 2]:
     for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
         for seed in [42, 43, 44, 45, 46]:
+            # seed
+            np.random.seed(seed)
+            tf.random.set_seed(seed)
+
             with strategy.scope():
                 model_bn = build_model(norm)
 
