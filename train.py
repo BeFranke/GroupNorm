@@ -1,4 +1,5 @@
-import json
+import pandas as pd
+import shutil
 
 import tensorflow as tf
 import numpy as np
@@ -7,6 +8,9 @@ from layer import GroupNormalization
 
 # 4 GPU training on BWunicluster
 strategy = tf.distribute.MirroredStrategy()
+
+# clear logdir
+shutil.rmtree("logs")
 
 
 def build_model(norm=tf.keras.layers.BatchNormalization):
@@ -37,7 +41,7 @@ def build_model(norm=tf.keras.layers.BatchNormalization):
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
     )
 
     return model
@@ -58,8 +62,10 @@ res = {'seed': [],
 
 for batch_size in [32, 16, 8, 4, 2]:
     for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
-    # for norm in [tf.keras.layers.BatchNormalization]:
         for seed in [42, 43, 44, 45, 46]:
+            model_id = f"BS{batch_size}-{'GN' if norm == GroupNormalization else 'BN'}-S{seed}"
+            tboard = tf.keras.callbacks.TensorBoard(log_dir=f"logs/{model_id}")
+
             # seed
             np.random.seed(seed)
             tf.random.set_seed(seed)
@@ -70,15 +76,17 @@ for batch_size in [32, 16, 8, 4, 2]:
             train_data_batch = train_data.batch(batch_size)
             test_data_batch = test_data.batch(batch_size)
 
-            history = model.fit(train_data_batch, epochs=50)
+            model.fit(train_data_batch, epochs=50, callbacks=[tboard])
 
             _, acc = model.evaluate(test_data_batch)
 
             res['seed'].append(seed)
             res['batch_size'].append(batch_size)
             res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
-            res['loss_curve'].append(history.history['loss'])
             res['accuracy'].append(acc)
 
-            with open("results.json", "w+") as fp:
-                json.dump(res, fp)
+            pd.DataFrame(res).to_csv("results.csv", index=False)
+
+            model.save(
+                f"models/{model_id}"
+            )

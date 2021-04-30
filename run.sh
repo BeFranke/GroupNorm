@@ -8,5 +8,5 @@
 source ~/.bashrc
 conda init
 conda activate tf
-python main.py
+python train.py
 
