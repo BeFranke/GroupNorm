@@ -93,8 +93,8 @@ class GroupNormalization(tf.keras.layers.Layer):
 
         return x * self.gamma + self.beta
         
-    def get_config():
-        config = super(Linear, self).get_config()
+    def get_config(self):
+        config = super().get_config()
         config.update({"groups": self.groups})
         return config
 

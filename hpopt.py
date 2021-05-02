@@ -10,13 +10,12 @@ import numpy as np
 A short search for the optimal learning rate. To keep closer to He & Wu, parameter selection is done for 
 a network with BatchNorm (Wu & He did not optimize parameters for their new Normalization).
 Further, I do not optimize learning rates separately for each batch size, as Wu & He did not do this either.
-For both, hyperparameter search and evaluation, training budget was 100 epochs. Wu & He used 200 epochs for the more
-complex ImageNet.
+For both, hyperparameter search and evaluation, training budget was 100 epochs like in Wu & He.
 """
 
 
 lrs = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
-seeds = [42, 43, 44, 45, 46]
+seeds = [1, 2, 3, 4, 5]
 
 # 4 GPU training on BWunicluster
 strategy = tf.distribute.MirroredStrategy()
