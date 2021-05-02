@@ -92,7 +92,11 @@ class GroupNormalization(tf.keras.layers.Layer):
         x = self.degroup(x)
 
         return x * self.gamma + self.beta
-        # return x
+        
+    def get_config():
+        config = super(Linear, self).get_config()
+        config.update({"groups": self.groups})
+        return config
 
 
 def test_numeric():

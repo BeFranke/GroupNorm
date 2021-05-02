@@ -73,7 +73,6 @@ if __name__ == "__main__":
     res = {'seed': [],
            'batch_size': [],
            'norm': [],
-           'loss_curve': [],
            'accuracy': []}
 
     for batch_size in [32, 16, 8, 4, 2]:
@@ -102,7 +101,7 @@ if __name__ == "__main__":
                 res['accuracy'].append(acc)
 
                 pd.DataFrame(res).to_csv("results.csv", index=False)
-
+                
                 model.save(
                     f"models/{model_id}"
                 )
