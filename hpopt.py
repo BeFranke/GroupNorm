@@ -41,7 +41,11 @@ for seed in seeds:
         with strategy.scope():
             model = build_model(BatchNormalization, lr=lr)
 
-        model.fit(train_data, epochs=100)
+        lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+            lambda epoch: lr * epoch // 30
+        )
+
+        model.fit(train_data, epochs=100, callbacks=[lr_schedule])
         _, acc = model.evaluate(val_data)
 
         results['seed'].append(seed)

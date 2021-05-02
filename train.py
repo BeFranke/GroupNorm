@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
 
-                model.fit(train_data_batch, epochs=100, callbacks=[tboard])
+                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule])
 
                 _, acc = model.evaluate(test_data_batch)
 
