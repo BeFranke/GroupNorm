@@ -15,7 +15,8 @@ For both, hyperparameter search and evaluation, training budget was 100 epochs l
 
 
 lrs = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
-seeds = [1, 2, 3, 4, 5]
+# seeds = [1, 2, 3, 4, 5]
+seeds = [1]
 
 # 4 GPU training on BWunicluster
 strategy = tf.distribute.MirroredStrategy()
