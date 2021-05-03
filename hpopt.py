@@ -42,7 +42,7 @@ for seed in seeds:
             model = build_model(BatchNormalization, lr=lr)
 
         lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-            lambda epoch: lr * epoch // 30
+            lambda epoch: lr / (10 ** (epoch // 30))
         )
 
         model.fit(train_data, epochs=100, callbacks=[lr_schedule])

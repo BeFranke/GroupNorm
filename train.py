@@ -110,7 +110,7 @@ if __name__ == "__main__":
            'accuracy': []}
 
     lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-        lambda epoch: LEARNING_RATE * epoch // 30
+        lambda epoch: LEARNING_RATE / (10 ** (epoch // 30))
     )
 
     for batch_size in [32, 16, 8, 4, 2]:
