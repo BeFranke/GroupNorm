@@ -19,14 +19,19 @@ my augmentation could deviate slightly. I used random zoom and rotation.
 """
 
 
-def augmentation(x):
-    x = tf.keras.layers.experimental.preprocessing.RandomZoom(height_factor=(0, -0.2), width_factor=(0, -0.2))(x)
+def augmentation(x, adapt_data):
+    # learned normalization instead of simple scaling by dividing by 255
+    # requires call to adapt()
+    normalize_input = tf.keras.layers.experimental.preprocessing.Normalization()
+    normalize_input.adapt(adapt_data)
+    x = normalize_input(x)
+    x = tf.keras.layers.experimental.preprocessing.RandomZoom(height_factor=(0, -0.3), width_factor=(0, -0.3))(x)
     x = tf.keras.layers.experimental.preprocessing.RandomRotation(factor=(-0.2, 0.2))(x)
-    x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="HORIZONTAL")(x)
+    x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="horizontal")(x)
     return x
 
 
-def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
+def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
     """
     ResNet18, but without the first pooling layer, and the first convolution does not use strides as resolution would
     be lost too fast.
@@ -56,7 +61,7 @@ def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
         return y
 
     inp = tf.keras.Input((32, 32, 3))
-    x = augmentation(inp)
+    x = augmentation(inp, adapt_data)
     x = tf.keras.layers.Conv2D(64, kernel_size=7, padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.0001),
                                bias_regularizer=tf.keras.regularizers.L2(0.0001))(x)
     x = norm()(x)
@@ -99,8 +104,6 @@ if __name__ == "__main__":
     os.mkdir("logs")
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
-    train_imgs = train_imgs / 255.0
-    test_imgs = test_imgs / 255.0
 
     train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
     test_data = tf.data.Dataset.from_tensor_slices((test_imgs, test_lbls))
@@ -125,7 +128,7 @@ if __name__ == "__main__":
                 tf.random.set_seed(seed)
 
                 with strategy.scope():
-                    model = build_model(norm, lr=LEARNING_RATE)
+                    model = build_model(train_imgs, norm, lr=LEARNING_RATE)
 
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)

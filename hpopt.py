@@ -23,7 +23,6 @@ strategy = tf.distribute.MirroredStrategy()
 
 # manual validation split, we do not want to search on the test set
 (train_imgs, train_lbls), _ = tf.keras.datasets.cifar10.load_data()
-train_imgs = train_imgs / 255.0
 
 val_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls)).take(6000).batch(32)
 train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls)).skip(6000).batch(32)
@@ -40,7 +39,7 @@ for seed in seeds:
         np.random.seed(seed)
         tf.random.set_seed(seed)
         with strategy.scope():
-            model = build_model(BatchNormalization, lr=lr)
+            model = build_model(train_imgs, BatchNormalization, lr=lr)
 
         lr_schedule = tf.keras.callbacks.LearningRateScheduler(
             lambda epoch: lr / (10 ** (epoch // 30))
