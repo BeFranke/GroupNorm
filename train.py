@@ -22,6 +22,7 @@ my augmentation could deviate slightly. I used random zoom and rotation.
 def augmentation(x):
     x = tf.keras.layers.experimental.preprocessing.RandomZoom(height_factor=(0, -0.2), width_factor=(0, -0.2))(x)
     x = tf.keras.layers.experimental.preprocessing.RandomRotation(factor=(-0.2, 0.2))(x)
+    x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="HORIZONTAL")(x)
     return x
 
 
@@ -69,7 +70,7 @@ def build_model(norm=tf.keras.layers.BatchNormalization, lr=0.001):
 
     # output block
     x = tf.keras.layers.GlobalAvgPool2D()(x)
-    x = tf.keras.layers.Dense(1000, kernel_regularizer=tf.keras.regularizers.L2(0.0001),
+    x = tf.keras.layers.Dense(10, kernel_regularizer=tf.keras.regularizers.L2(0.0001),
                               bias_regularizer=tf.keras.regularizers.L2(0.0001))(x)
 
     model = tf.keras.Model(inputs=inp, outputs=x)
