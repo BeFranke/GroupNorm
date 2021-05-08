@@ -94,7 +94,7 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
 if __name__ == "__main__":
 
     # tuned using hpopt.py
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.05
 
     # 4 GPU training on BWunicluster
     strategy = tf.distribute.MirroredStrategy()
