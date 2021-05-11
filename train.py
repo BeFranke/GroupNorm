@@ -3,6 +3,7 @@ import shutil
 import os
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 import numpy as np
 
 from layer import GroupNormalization
@@ -13,9 +14,9 @@ Hyperparameters taken from Wu & H:
 - epochs = 100
 - data augmentation
 
-Learning rate was tuned with hpopt.py, but decays as in Wu & He.
+Learning rate was taken from ResNet-Paper, but decays as in Wu & He.
 As Wu & He did not describe their data augmentation in detail (and neither the paper they referenced), 
-my augmentation could deviate slightly. I used random zoom and rotation.
+my augmentation could deviate slightly. I used random zoom, flip and rotation.
 """
 
 
@@ -33,14 +34,17 @@ def augmentation(x, adapt_data):
 
 def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
     """
-    ResNet18, but without the first pooling layer, and the first convolution does not use strides as resolution would
-    be lost too fast.
+    ResNet32 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
+    Only deviation is that I use projection shortcuts when dimensions change (they only omitted it to have the same
+    number of parameters as the non-residual baseline).
     :return: compiled model
     """
-    kwargs = {'kernel_size': 3,
-              'padding': 'same',
-              'kernel_regularizer': tf.keras.regularizers.L2(0.0001),
-              'bias_regularizer': tf.keras.regularizers.L2(0.0001)}
+    kwargs = {
+        'kernel_size': 3,
+        'padding': 'same',
+        'kernel_regularizer': tf.keras.regularizers.L2(0.0001),
+        'bias_regularizer': tf.keras.regularizers.L2(0.0001)
+    }
 
     def block(x, filters, downscale=False):
         stride = int(downscale) + 1
@@ -62,13 +66,15 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
 
     inp = tf.keras.Input((32, 32, 3))
     x = augmentation(inp, adapt_data)
-    x = tf.keras.layers.Conv2D(64, kernel_size=7, padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.0001),
-                               bias_regularizer=tf.keras.regularizers.L2(0.0001))(x)
+    x = tf.keras.layers.Conv2D(
+        16, kernel_size=3, padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.0001),
+        bias_regularizer=tf.keras.regularizers.L2(0.0001)
+    )(x)
     x = norm()(x)
 
     # resolution:
-    #          32  32  16   16   8    8    4    4
-    filters = [64, 64, 128, 128, 256, 256, 512, 512]
+    #          32  32  32  32  32  16  16  16  16  16   8   8   8   8   8
+    filters = [16, 16, 16, 16, 16, 32, 32, 32, 32, 32, 64, 64, 64, 64, 64]
     for i, f in enumerate(filters):
         downscale = i != 0 and filters[i - 1] < f
         x = block(x, f, downscale)
@@ -93,8 +99,8 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
 
 if __name__ == "__main__":
 
-    # tuned using hpopt.py
-    LEARNING_RATE = 0.05
+    # LR like described in (https://arxiv.org/pdf/1512.03385.pdf)
+    LEARNING_RATE = 0.1
 
     # 4 GPU training on BWunicluster
     strategy = tf.distribute.MirroredStrategy()
@@ -108,10 +114,12 @@ if __name__ == "__main__":
     train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
     test_data = tf.data.Dataset.from_tensor_slices((test_imgs, test_lbls))
 
-    res = {'seed': [],
-           'batch_size': [],
-           'norm': [],
-           'accuracy': []}
+    res = {
+        'seed': [],
+        'batch_size': [],
+        'norm': [],
+        'accuracy': []
+    }
 
     lr_schedule = tf.keras.callbacks.LearningRateScheduler(
         lambda epoch: LEARNING_RATE / (10 ** (epoch // 30))
@@ -141,6 +149,8 @@ if __name__ == "__main__":
                 res['batch_size'].append(batch_size)
                 res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
                 res['accuracy'].append(acc)
+
+                exit(0)
 
                 pd.DataFrame(res).to_csv("results.csv", index=False)
 

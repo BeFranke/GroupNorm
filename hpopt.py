@@ -13,10 +13,7 @@ Further, I do not optimize learning rates separately for each batch size, as Wu 
 For both, hyperparameter search and evaluation, training budget was 100 epochs like in Wu & He.
 """
 
-# a preliminary search showed that lrs lower than 0.005 seriously hurt performance
-# these seem pretty high, but the scheduler divides the LR vy 10 at 30, 60 and 90 epochs, 
-# therefore a high learning rate is actually required
-lrs = [0.01, 0.05, 0.1, 0.2]
+lrs = [0.001, 0.005, 0.01, 0.05]
 seeds = [1, 2, 3, 4, 5]
 
 # 4 GPU training on BWunicluster
