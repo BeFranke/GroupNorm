@@ -6,7 +6,6 @@ import tensorflow as tf
 class GroupNormalization(tf.keras.layers.Layer):
     def __init__(self,
                  groups: int = 32,
-                 axis: int = 3,
                  eps: float = 1e-5,
                  gamma_initializer: Union[None, str, tf.keras.initializers.Initializer] = 'ones',
                  beta_initializer: Union[None, str, tf.keras.initializers.Initializer] = 'zeros',
@@ -95,7 +94,16 @@ class GroupNormalization(tf.keras.layers.Layer):
         
     def get_config(self):
         config = super().get_config()
-        config.update({"groups": self.groups})
+        config.update({
+            "groups": self.groups,
+            "eps": self.eps,
+            "gamma_initializer": self.gamma_initializer,
+            "beta_initializer": self.beta_initializer,
+            "gamma_regularizer": self.gamma_regularizer,
+            "beta_regularizer": self.beta_regularizer,
+            "gamma_constraint": self.gamma_constraint,
+            "beta_constraint": self.beta_constraint
+        })
         return config
 
 
