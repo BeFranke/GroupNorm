@@ -1,42 +1,25 @@
-import pandas as pd
-import shutil
 import os
+import shutil
 
-import tensorflow as tf
-import tensorflow_addons as tfa
 import numpy as np
+import pandas as pd
+import tensorflow as tf
 
 from layer import GroupNormalization
 
-"""
-Hyperparameters taken from Wu & H:
-- weight decay = 0.0001
-- epochs = 100
-- data augmentation
 
-Learning rate was taken from ResNet-Paper, but decays as in Wu & He.
-As Wu & He did not describe their data augmentation in detail (and neither the paper they referenced), 
-my augmentation could deviate slightly. I used random zoom, flip and rotation.
-"""
-
-
-def augmentation(x, adapt_data):
-    # learned normalization instead of simple scaling by dividing by 255
-    # requires call to adapt()
-    normalize_input = tf.keras.layers.experimental.preprocessing.Normalization()
-    normalize_input.adapt(adapt_data)
-    x = normalize_input(x)
-    x = tf.keras.layers.experimental.preprocessing.RandomZoom(height_factor=(0, -0.3), width_factor=(0, -0.3))(x)
-    x = tf.keras.layers.experimental.preprocessing.RandomRotation(factor=(-0.2, 0.2))(x)
-    x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="horizontal")(x)
-    return x
-
-
-def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
+def build_model(adapt_data: tf.Tensor,
+                seed: int,
+                norm: tf.keras.layers.Layer = tf.keras.layers.BatchNormalization,
+                lr: float = 0.001) -> tf.keras.Model:
     """
     ResNet32 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
     Only deviation is that I use projection shortcuts when dimensions change (they only omitted it to have the same
     number of parameters as the non-residual baseline).
+    :param adapt_data: training data to compute mean and variance for initial normalization
+    :param seed: random seed for reproducibility
+    :param norm: norm to use, should be one of BatchNormalization or GroupNormalization (class object, NOT instance!)
+    :param lr: initial learning rate to use
     :return: compiled model
     """
     kwargs = {
@@ -46,7 +29,36 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
         'bias_regularizer': tf.keras.regularizers.L2(0.0001)
     }
 
-    def block(x, filters, downscale=False):
+    def augmentation(x: tf.Tensor, adapt_data: tf.Tensor, seed: int) -> tf.Tensor:
+        """
+        handles data augmentation & preprocessing
+        :param x: input tensor
+        :param adapt_data: entire training data to compute mean & variance
+        :param seed: random seed
+        :return: x after preprocessing
+        """
+        # learned normalization instead of simple scaling by dividing by 255
+        # requires call to adapt()
+        normalize_input = tf.keras.layers.experimental.preprocessing.Normalization()
+        normalize_input.adapt(adapt_data)
+        x = normalize_input(x)
+        x = tf.image.pad_to_bounding_box(x, 4, 4, 4, 4)
+        x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="horizontal", seed=seed)(x)
+        x = tf.keras.layers.experimental.preprocessing.RandomCrop(32, 32, seed=seed)(x)
+        return x
+
+    def block(x: tf.Tensor,
+              filters: int,
+              norm: tf.keras.layers.Layer,
+              downscale: bool = False) -> tf.Tensor:
+        """
+        Single ResNet-Block with projection shortcut on dimension change.
+        :param x: input tensor
+        :param filters: number of filters (per layer) in this block
+        :param norm: normalization layer to use
+        :param downscale: True if spatial resolution should be reduced
+        :return: output tensor
+        """
         stride = int(downscale) + 1
         c_in = x.shape[-1]
         y = tf.keras.layers.Conv2D(filters, strides=stride, **kwargs)(x)
@@ -59,13 +71,18 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
                                        **{key: kwargs[key] for key in kwargs if key != 'kernel_size'})(x)
 
         # norm before addition, like recommended here: http://torch.ch/blog/2016/02/04/resnets.html
-        y = norm()(y)
+        # Wu & He initialize the last norm of each convolutional block with gamma=0 s.t. the initial state is identity
+        if norm == GroupNormalization:
+            y = norm(gamma_initializer='zeros')(y)
+        else:
+            y = norm()(y)
+
         y = tf.keras.layers.Add()([x, y])
         y = tf.keras.layers.LeakyReLU()(y)
         return y
 
     inp = tf.keras.Input((32, 32, 3))
-    x = augmentation(inp, adapt_data)
+    x = augmentation(inp, adapt_data, seed=seed)
     x = tf.keras.layers.Conv2D(
         16, kernel_size=3, padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.0001),
         bias_regularizer=tf.keras.regularizers.L2(0.0001)
@@ -77,7 +94,7 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
     filters = [16, 16, 16, 16, 16, 32, 32, 32, 32, 32, 64, 64, 64, 64, 64]
     for i, f in enumerate(filters):
         downscale = i != 0 and filters[i - 1] < f
-        x = block(x, f, downscale)
+        x = block(x, f, norm, downscale)
 
     # output block
     x = tf.keras.layers.GlobalAvgPool2D()(x)
@@ -91,7 +108,7 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
     model.compile(
         optimizer=tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9, nesterov=True),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
+        metrics=['accuracy']
     )
 
     return model
@@ -100,13 +117,13 @@ def build_model(adapt_data, norm=tf.keras.layers.BatchNormalization, lr=0.001):
 if __name__ == "__main__":
 
     # LR like described in (https://arxiv.org/pdf/1512.03385.pdf)
-    LEARNING_RATE = 0.1
+    get_lr = lambda batch_size: 0.1 * batch_size / 32
 
     # 4 GPU training on BWunicluster
     strategy = tf.distribute.MirroredStrategy()
 
     # clear logdir
-    shutil.rmtree("logs")
+    shutil.rmtree("logs", ignore_errors=True)
     os.mkdir("logs")
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
@@ -121,13 +138,16 @@ if __name__ == "__main__":
         'accuracy': []
     }
 
-    lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-        lambda epoch: LEARNING_RATE / (10 ** (epoch // 30))
-    )
-
     for batch_size in [32, 16, 8, 4, 2]:
         for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
             for seed in [1, 2, 3, 4, 5]:
+
+                lr = get_lr(batch_size)
+
+                lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+                    lambda epoch: lr / (10 ** (epoch // 30))
+                )
+
                 model_id = f"BS{batch_size}-{'GN' if norm == GroupNormalization else 'BN'}-S{seed}"
                 tboard = tf.keras.callbacks.TensorBoard(log_dir=f"logs/{model_id}")
 
@@ -136,7 +156,7 @@ if __name__ == "__main__":
                 tf.random.set_seed(seed)
 
                 with strategy.scope():
-                    model = build_model(train_imgs, norm, lr=LEARNING_RATE)
+                    model = build_model(train_imgs, seed=seed, norm=norm, lr=lr)
 
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
@@ -149,8 +169,6 @@ if __name__ == "__main__":
                 res['batch_size'].append(batch_size)
                 res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
                 res['accuracy'].append(acc)
-
-                exit(0)
 
                 pd.DataFrame(res).to_csv("results.csv", index=False)
 
