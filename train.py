@@ -42,7 +42,8 @@ def build_model(adapt_data: tf.Tensor,
         normalize_input = tf.keras.layers.experimental.preprocessing.Normalization()
         normalize_input.adapt(adapt_data)
         x = normalize_input(x)
-        x = tf.image.pad_to_bounding_box(x, 4, 4, 4, 4)
+        # pad 4 pixels on each side, then random crop to 32x32 like described in the ResNet Paper
+        x = tf.image.pad_to_bounding_box(x, offset_height=4, offset_width=4, target_height=40, target_width=40)
         x = tf.keras.layers.experimental.preprocessing.RandomFlip(mode="horizontal", seed=seed)(x)
         x = tf.keras.layers.experimental.preprocessing.RandomCrop(32, 32, seed=seed)(x)
         return x
