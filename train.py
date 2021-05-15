@@ -7,6 +7,8 @@ import tensorflow as tf
 
 from layer import GroupNormalization
 
+from argparse import ArgumentParser
+
 
 def build_model(adapt_data: tf.Tensor,
                 seed: int,
@@ -116,6 +118,11 @@ def build_model(adapt_data: tf.Tensor,
 
 
 if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument("--restart", action="store_true", default=False, help="remove old results before training")
+    ap.add_argument("--seeds", type=int, nargs="+", default=[1], help="specify all seeds to run")
+
+    args = ap.parse_args()
 
     # LR like described in (https://arxiv.org/pdf/1512.03385.pdf)
     get_lr = lambda batch_size: 0.1 * batch_size / 32
@@ -123,25 +130,34 @@ if __name__ == "__main__":
     # 4 GPU training on BWunicluster
     strategy = tf.distribute.MirroredStrategy()
 
-    # clear logdir
-    shutil.rmtree("logs", ignore_errors=True)
-    os.mkdir("logs")
+    if args.restart:
+        # clear logdir
+        shutil.rmtree("logs", ignore_errors=True)
+        os.mkdir("logs")
+        os.remove("results.csv")
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
 
     train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
     test_data = tf.data.Dataset.from_tensor_slices((test_imgs, test_lbls))
 
-    res = {
+    res = pd.DataFrame({
         'seed': [],
         'batch_size': [],
         'norm': [],
         'accuracy': []
-    }
+    })
 
-    for batch_size in [32, 16, 8, 4, 2]:
-        for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
-            for seed in [1, 2, 3, 4, 5]:
+    if not args.restart:
+        try:
+            res = pd.read_csv("results.csv")
+        except:
+            pass
+
+    for seed in args.seeds:
+        for batch_size in [32, 16, 8, 4, 2]:
+            for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
+
 
                 lr = get_lr(batch_size)
 
@@ -166,12 +182,15 @@ if __name__ == "__main__":
 
                 _, acc = model.evaluate(test_data_batch)
 
-                res['seed'].append(seed)
-                res['batch_size'].append(batch_size)
-                res['norm'].append("Group Norm" if norm == GroupNormalization else 'Batch Norm')
-                res['accuracy'].append(acc)
+                res_tmp = {
+                    'seed': seed,
+                    'batch_size': batch_size,
+                    'norm': 'Group Norm' if norm == GroupNormalization else 'Batch Norm',
+                    'accuracy': acc
+                }
 
-                pd.DataFrame(res).to_csv("results.csv", index=False)
+                res = res.append(res_tmp)
+                res.to_csv("results.csv")
 
                 model.save(
                     f"models/{model_id}"
