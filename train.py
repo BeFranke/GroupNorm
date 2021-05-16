@@ -121,6 +121,7 @@ if __name__ == "__main__":
     ap = ArgumentParser()
     ap.add_argument("--restart", action="store_true", default=False, help="remove old results before training")
     ap.add_argument("--seeds", type=int, nargs="+", default=[1], help="specify all seeds to run")
+    ap.add_argument("--skip", type=int, default=0, help="skip the first n experiments (helpful for resuming)")
 
     args = ap.parse_args()
 
@@ -134,7 +135,10 @@ if __name__ == "__main__":
         # clear logdir
         shutil.rmtree("logs", ignore_errors=True)
         os.mkdir("logs")
-        os.remove("results.csv")
+        try:
+            os.remove("results.csv")
+        except:
+            pass
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
 
@@ -154,10 +158,13 @@ if __name__ == "__main__":
         except:
             pass
 
+    exp = 0
     for seed in args.seeds:
         for batch_size in [32, 16, 8, 4, 2]:
             for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
-
+                exp += 1
+                if exp <= args.skip:
+                    continue
 
                 lr = get_lr(batch_size)
 
@@ -189,7 +196,7 @@ if __name__ == "__main__":
                     'accuracy': acc
                 }
 
-                res = res.append(res_tmp)
+                res = res.append(res_tmp, ignore_index=True)
                 res.to_csv("results.csv")
 
                 model.save(
