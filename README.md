@@ -23,16 +23,18 @@ They did not optimize any parameters separately.
 
 To keep close to the general procedure, while using another network and another dataset, 
 I decided to follow the CIFAR-10 training procedure and ResNet-architecture described in [2], Section 4.2. 
-I selected the ResNet32-architecture from the described networks with the adaptions for CIFAR-10, 
+I selected the ResNet18-architecture from the described networks with the adaptions for CIFAR-10, 
 which mostly consist of a lower amount of feature maps, no intermediate pooling and longer network 
 paths without change in dimensions compared to ResNet for ImageNet.
-I selected the ResNet32 variant specifically, as it is deep enough to motivate the use of BatchNormalization,
-but has a lot less parameters compared to the ImageNet-variant of ResNet50.
 My only deviation from the described architecture consists in the residual connections. 
 While in [2], only identity shortcuts where used to keep the number of parameters equal to their 
 non-residual baseline, I used projection shortcuts when dimensions change between layers. 
 The experiments in [2] showed projection shortcuts to be beneficial, and I do not have a baseline 
 I need to match in parameters.
+
+For the parameter G of the GroupNorm layer, [1] used 32 in all cases. As the CIFAR-ResNet has layers with
+only 16 feature maps, I set G = 8 to keep to the relationship that G is equal to half of the minimum amount of 
+feature maps in the network.
 
 I also deviated from the training procedure of [2] slightly, as I train for 100 epochs 
 (with variable batch size for the experiments) instead of 64k iterations with a fixed batch size of 128.

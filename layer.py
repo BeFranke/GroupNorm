@@ -5,7 +5,7 @@ import tensorflow as tf
 
 class GroupNormalization(tf.keras.layers.Layer):
     def __init__(self,
-                 groups: int = 16,
+                 groups: int = 8,
                  eps: float = 1e-5,
                  gamma_initializer: Union[None, str, tf.keras.initializers.Initializer] = 'ones',
                  beta_initializer: Union[None, str, tf.keras.initializers.Initializer] = 'zeros',

@@ -15,7 +15,7 @@ def build_model(adapt_data: tf.Tensor,
                 norm: tf.keras.layers.Layer = tf.keras.layers.BatchNormalization,
                 lr: float = 0.001) -> tf.keras.Model:
     """
-    ResNet32 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
+    ResNet18 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
     Only deviation is that I use projection shortcuts when dimensions change (they only omitted it to have the same
     number of parameters as the non-residual baseline).
     :param adapt_data: training data to compute mean and variance for initial normalization
@@ -93,8 +93,8 @@ def build_model(adapt_data: tf.Tensor,
     x = norm()(x)
 
     # resolution:
-    #          32  32  32  32  32  16  16  16  16  16   8   8   8   8   8
-    filters = [16, 16, 16, 16, 16, 32, 32, 32, 32, 32, 64, 64, 64, 64, 64]
+    #          32  32  16  16  8   8
+    filters = [16, 16, 32, 32, 64, 64]
     for i, f in enumerate(filters):
         downscale = i != 0 and filters[i - 1] < f
         x = block(x, f, norm, downscale)
@@ -185,7 +185,9 @@ if __name__ == "__main__":
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
 
-                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule])
+                # as I did not do any parameter tuning, I can set validation set = test set for convenience
+                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule],
+                          validation_data=test_data_batch)
 
                 _, acc = model.evaluate(test_data_batch)
 
