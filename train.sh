@@ -8,5 +8,5 @@
 source ~/.bashrc
 conda init
 conda activate tf
-python train.py
+python train.py --seeds 1 2 3 4 5
 

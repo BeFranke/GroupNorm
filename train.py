@@ -165,6 +165,14 @@ if __name__ == "__main__":
                 exp += 1
                 if exp <= args.skip:
                     continue
+                
+                norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
+                if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
+                    print(f"Skipping S{seed}-BS{batch_size}-{norm_str}!")
+                else:
+                    print(f"Training S{seed}-BS{batch_size}-{norm_str}!")
+
+                exit(0)
 
                 lr = get_lr(batch_size)
 
@@ -185,14 +193,14 @@ if __name__ == "__main__":
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
 
-                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule])
+                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule], verbose=0)
 
-                _, acc = model.evaluate(test_data_batch)
+                _, acc = model.evaluate(test_data_batch, verbose=0)
 
                 res_tmp = {
                     'seed': seed,
                     'batch_size': batch_size,
-                    'norm': 'Group Norm' if norm == GroupNormalization else 'Batch Norm',
+                    'norm': norm_str,
                     'accuracy': acc
                 }
 
