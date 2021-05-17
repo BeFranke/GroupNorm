@@ -23,7 +23,7 @@ They did not optimize any parameters separately.
 
 To keep close to the general procedure, while using another network and another dataset, 
 I decided to follow the CIFAR-10 training procedure and ResNet-architecture described in [2], Section 4.2. 
-I selected the ResNet18-architecture from the described networks with the adaptions for CIFAR-10, 
+I selected the ResNet20-architecture from the described networks with the adaptions for CIFAR-10, 
 which mostly consist of a lower amount of feature maps, no intermediate pooling and longer network 
 paths without change in dimensions compared to ResNet for ImageNet.
 My only deviation from the described architecture consists in the residual connections. 

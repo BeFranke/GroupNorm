@@ -15,7 +15,7 @@ def build_model(adapt_data: tf.Tensor,
                 norm: tf.keras.layers.Layer = tf.keras.layers.BatchNormalization,
                 lr: float = 0.001) -> tf.keras.Model:
     """
-    ResNet18 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
+    ResNet20 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
     Only deviation is that I use projection shortcuts when dimensions change (they only omitted it to have the same
     number of parameters as the non-residual baseline).
     :param adapt_data: training data to compute mean and variance for initial normalization
@@ -93,8 +93,8 @@ def build_model(adapt_data: tf.Tensor,
     x = norm()(x)
 
     # resolution:
-    #          32  32  16  16  8   8
-    filters = [16, 16, 32, 32, 64, 64]
+    #          32  32  32  16  16  16   8   8   8
+    filters = [16, 16, 16, 32, 32, 32, 64, 64, 64]
     for i, f in enumerate(filters):
         downscale = i != 0 and filters[i - 1] < f
         x = block(x, f, norm, downscale)
@@ -121,7 +121,6 @@ if __name__ == "__main__":
     ap = ArgumentParser()
     ap.add_argument("--restart", action="store_true", default=False, help="remove old results before training")
     ap.add_argument("--seeds", type=int, nargs="+", default=[1], help="specify all seeds to run")
-    ap.add_argument("--skip", type=int, default=0, help="skip the first n experiments (helpful for resuming)")
 
     args = ap.parse_args()
 
@@ -135,10 +134,6 @@ if __name__ == "__main__":
         # clear logdir
         shutil.rmtree("logs", ignore_errors=True)
         os.mkdir("logs")
-        try:
-            os.remove("results.csv")
-        except:
-            pass
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
 
@@ -158,14 +153,9 @@ if __name__ == "__main__":
         except:
             pass
 
-    exp = 0
     for seed in args.seeds:
         for batch_size in [32, 16, 8, 4, 2]:
             for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
-                exp += 1
-                if exp <= args.skip:
-                    continue
-
                 norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
                 if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
                     print(f"Skipping S{seed}-BS{batch_size}-{norm_str}!")

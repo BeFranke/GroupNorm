@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 
 
 def plot_results(path_for_result_png=None, with_std=True):
-    df = pd.read_csv("results.csv")
+    df = pd.read_csv("results_old_cluster.csv")
     df["error_rate"] = (1 - df["accuracy"]) * 100
     ax = sns.lineplot(
         x="batch_size",
