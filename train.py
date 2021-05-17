@@ -144,7 +144,8 @@ if __name__ == "__main__":
         'seed': [],
         'batch_size': [],
         'norm': [],
-        'accuracy': []
+        'accuracy_final': [],
+        'accuracy_5': []
     })
 
     if not args.restart:
@@ -182,16 +183,20 @@ if __name__ == "__main__":
                 test_data_batch = test_data.batch(batch_size)
 
                 # as I did not do any parameter tuning, I can set validation set = test set for convenience
-                model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule],
-                          validation_data=test_data_batch)
+                history = model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule],
+                                    validation_data=test_data_batch)
 
                 _, acc = model.evaluate(test_data_batch)
+
+                # average of last 5 epochs
+                acc_5 = np.mean(history.history['val_accuracy'][-5:])
 
                 res_tmp = {
                     'seed': seed,
                     'batch_size': batch_size,
                     'norm': norm_str,
-                    'accuracy': acc
+                    'accuracy_final': acc,
+                    'accuracy_5': acc_5
                 }
 
                 res = res.append(res_tmp, ignore_index=True)
