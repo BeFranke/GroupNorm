@@ -166,6 +166,12 @@ if __name__ == "__main__":
                 if exp <= args.skip:
                     continue
 
+                norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
+                if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
+                    print(f"Skipping S{seed}-BS{batch_size}-{norm_str}!")
+                else:
+                    print(f"Training S{seed}-BS{batch_size}-{norm_str}!")
+
                 lr = get_lr(batch_size)
 
                 lr_schedule = tf.keras.callbacks.LearningRateScheduler(
@@ -194,7 +200,7 @@ if __name__ == "__main__":
                 res_tmp = {
                     'seed': seed,
                     'batch_size': batch_size,
-                    'norm': 'Group Norm' if norm == GroupNormalization else 'Batch Norm',
+                    'norm': norm_str,
                     'accuracy': acc
                 }
 
