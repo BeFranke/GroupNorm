@@ -40,7 +40,7 @@ I also deviated from the training procedure of [2] slightly, as I train for 100 
 (with variable batch size for the experiments) instead of 64k iterations with a fixed batch size of 128.
 The number of epochs, and the learning rate schedule were again taken from [1], 
 which is similar enough to [2] (dividing the learning rate by 10 at evenly spaced points of the training).
-I used nesterov momentum like recommended in [3].
+I used nesterov momentum like recommended in [3] (TODO currently not).
 
 While [1] evaluated their models on center 224 x 224 crops of ImageNet and the median 
 of the final 5 epochs' validation error were taken, 

@@ -28,7 +28,9 @@ def build_model(adapt_data: tf.Tensor,
         'kernel_size': 3,
         'padding': 'same',
         'kernel_regularizer': tf.keras.regularizers.L2(0.0001),
-        'bias_regularizer': tf.keras.regularizers.L2(0.0001)
+        'bias_regularizer': tf.keras.regularizers.L2(0.0001),
+        'use_bias': False,
+        'kernel_initializer': tf.keras.initializers.HeNormal(seed)
     }
 
     def augmentation(x: tf.Tensor, adapt_data: tf.Tensor, seed: int) -> tf.Tensor:
@@ -65,7 +67,7 @@ def build_model(adapt_data: tf.Tensor,
         stride = int(downscale) + 1
         c_in = x.shape[-1]
         y = tf.keras.layers.Conv2D(filters, strides=stride, **kwargs)(x)
-        y = tf.keras.layers.LeakyReLU()(y)
+        y = tf.keras.layers.ReLU()(y)
         y = norm()(y)
         y = tf.keras.layers.Conv2D(filters, **kwargs)(y)
         if c_in != filters or downscale:
@@ -81,14 +83,15 @@ def build_model(adapt_data: tf.Tensor,
             y = norm()(y)
 
         y = tf.keras.layers.Add()([x, y])
-        y = tf.keras.layers.LeakyReLU()(y)
+        y = tf.keras.layers.ReLU()(y)
         return y
 
     inp = tf.keras.Input((32, 32, 3))
     x = augmentation(inp, adapt_data, seed=seed)
     x = tf.keras.layers.Conv2D(
         16, kernel_size=3, padding='same', kernel_regularizer=tf.keras.regularizers.L2(0.0001),
-        bias_regularizer=tf.keras.regularizers.L2(0.0001)
+        bias_regularizer=tf.keras.regularizers.L2(0.0001), use_bias=False,
+        kernel_initializer=tf.keras.initializers.HeNormal(seed)
     )(x)
     x = norm()(x)
 
@@ -109,7 +112,7 @@ def build_model(adapt_data: tf.Tensor,
     # SGD with nesterov momentum, like recommended here: http://torch.ch/blog/2016/02/04/resnets.html
     # (this is a blog cited by the facebookresearch-github page cited by the Wu & He Paper)
     model.compile(
-        optimizer=tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9, nesterov=True),
+        optimizer=tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=['accuracy']
     )
@@ -155,7 +158,7 @@ if __name__ == "__main__":
             pass
 
     for seed in args.seeds:
-        for batch_size in [32, 16, 8, 4, 2]:
+        for batch_size in [128, 32, 16, 8, 4, 2]:
             for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
                 norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
                 if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
