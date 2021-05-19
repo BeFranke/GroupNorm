@@ -158,7 +158,7 @@ if __name__ == "__main__":
             pass
 
     for seed in args.seeds:
-        for batch_size in [128, 32, 16, 8, 4, 2]:
+        for batch_size in [32, 16, 8, 4, 2]:
             for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
                 norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
                 if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
