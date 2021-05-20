@@ -203,7 +203,7 @@ if __name__ == "__main__":
                 }
 
                 res = res.append(res_tmp, ignore_index=True)
-                res.to_csv("results.csv")
+                res.to_csv("results.csv", index=False)
 
                 model.save(
                     f"models/{model_id}"

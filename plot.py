@@ -1,11 +1,13 @@
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 
 
-def plot_results(path_for_result_png=None, with_std=True):
-    df = pd.read_csv("results_old_cluster.csv")
-    df["error_rate"] = (1 - df["accuracy"]) * 100
+def plot_results(fname="results.csv"):
+    sns.set_theme()
+    df = pd.read_csv(fname)
+    df["error_rate"] = (1 - df["accuracy_5"]) * 100
     ax = sns.lineplot(
         x="batch_size",
         y="error_rate",
@@ -15,8 +17,11 @@ def plot_results(path_for_result_png=None, with_std=True):
     )
     ax.invert_xaxis()
     ax.set_xlabel("batch size")
-    ax.set_ylabel("error (%)")
+    ax.set_ylabel("test error (%)")
     ax.set_xscale("log")
+    ax.set_xticks([2, 4, 8, 16, 32])
+    ax.get_xaxis().set_major_formatter(ScalarFormatter())
+    ax.legend(title="Normalization Type")
     plt.show()
 
 
