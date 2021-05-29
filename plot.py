@@ -7,7 +7,7 @@ from matplotlib.ticker import ScalarFormatter
 def plot_results(fname="results.csv"):
     sns.set_theme()
     df = pd.read_csv(fname)
-    df["error_rate"] = (1 - df["accuracy_5"]) * 100
+    df["error_rate"] = (1 - df["accuracy"]) * 100
     ax = sns.lineplot(
         x="batch_size",
         y="error_rate",
@@ -22,6 +22,8 @@ def plot_results(fname="results.csv"):
     ax.set_xticks([2, 4, 8, 16, 32])
     ax.get_xaxis().set_major_formatter(ScalarFormatter())
     ax.legend(title="Normalization Type")
+    fig = plt.gcf()
+    fig.savefig("plot.png")
     plt.show()
 
 

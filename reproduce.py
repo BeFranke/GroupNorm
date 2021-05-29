@@ -5,13 +5,6 @@ import pandas as pd
 
 from plot import plot_results
 
-"""
-Limitation of the reproduction:
-Only the final accuracy can be reproduced, as else 5 models per trial would have to be saved.
-This shouldn't change the results much, as averaging the final 5 epochs isn't a very robust way to combat randomness 
-anyway
-"""
-
 results_new = pd.DataFrame({
     "seed": [],
     "batch_size": [],
@@ -41,8 +34,7 @@ if __name__ == "__main__":
             "seed": seed,
             "batch_size": batch_size,
             "norm": norm,
-            # this isn't the actual mean of the final 5 epochs' accuracy, but its easier this way
-            "accuracy_5": acc
+            "accuracy": acc
         }, ignore_index=True)
 
     results_new.to_csv("results_reproduced.csv", index=False)

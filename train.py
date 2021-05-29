@@ -20,7 +20,7 @@ def build_model(adapt_data: tf.Tensor,
     number of parameters as the non-residual baseline).
     :param adapt_data: training data to compute mean and variance for initial normalization
     :param seed: random seed for reproducibility
-    :param norm: norm to use, should be one of BatchNormalization or GroupNormalization (class object, NOT instance!)
+    :param norm: norm to use, should be one of BatchNormalization or GroupNormalization
     :param lr: initial learning rate to use
     :return: compiled model
     """
@@ -29,6 +29,9 @@ def build_model(adapt_data: tf.Tensor,
         'padding': 'same',
         'kernel_regularizer': tf.keras.regularizers.L2(0.0001),
         'bias_regularizer': tf.keras.regularizers.L2(0.0001),
+        # bias is set to False, as Batch Norm already supplies a bias
+        # see for example https://stackoverflow.com/questions/45134831/is-bias-necessarily-need-at-colvolution-layer
+        # or https://discuss.pytorch.org/t/why-does-the-resnet-model-given-by-pytorch-omit-biases-from-the-convolutional-layer/10990
         'use_bias': False,
         'kernel_initializer': tf.keras.initializers.HeNormal(seed)
     }
@@ -109,8 +112,6 @@ def build_model(adapt_data: tf.Tensor,
 
     model = tf.keras.Model(inputs=inp, outputs=x)
 
-    # SGD with nesterov momentum, like recommended here: http://torch.ch/blog/2016/02/04/resnets.html
-    # (this is a blog cited by the facebookresearch-github page cited by the Wu & He Paper)
     model.compile(
         optimizer=tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.9),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -130,13 +131,16 @@ if __name__ == "__main__":
     # LR like described in (https://arxiv.org/pdf/1512.03385.pdf)
     get_lr = lambda batch_size: 0.1 * batch_size / 32
 
-    # 4 GPU training on BWunicluster
+    # was intended for planned 4 GPU training on BWunicluster, however due to the enormous waiting times I ended up
+    # training on my own computer with a single GPU
+    # this does not break single-GPU training, therefore I just left it here
     strategy = tf.distribute.MirroredStrategy()
 
     if args.restart:
         # clear logdir
         shutil.rmtree("logs", ignore_errors=True)
         os.mkdir("logs")
+        os.rename("results.csv", "results.csv.old")
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
 
@@ -147,8 +151,7 @@ if __name__ == "__main__":
         'seed': [],
         'batch_size': [],
         'norm': [],
-        'accuracy_final': [],
-        'accuracy_5': []
+        'accuracy': [],
     })
 
     if not args.restart:
@@ -161,10 +164,20 @@ if __name__ == "__main__":
         for batch_size in [32, 16, 8, 4, 2]:
             for norm in [GroupNormalization, tf.keras.layers.BatchNormalization]:
                 norm_str = "Group Norm" if norm == GroupNormalization else "Batch Norm"
+
+                # this print-abomination is here to make sure my output is visible in the
+                # large amount of tf-messages
+                print()
+                print()
+                print()
                 if ((res["seed"] == seed) & (res["batch_size"] == batch_size) & (res["norm"] == norm_str)).any():
                     print(f"Skipping S{seed}-BS{batch_size}-{norm_str}!")
+                    continue
                 else:
                     print(f"Training S{seed}-BS{batch_size}-{norm_str}!")
+                print()
+                print()
+                print()
 
                 lr = get_lr(batch_size)
 
@@ -185,21 +198,21 @@ if __name__ == "__main__":
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
 
-                # as I did not do any parameter tuning, I can set validation set = test set for convenience
+                # setting validation set = test set for convenience
                 history = model.fit(train_data_batch, epochs=100, callbacks=[tboard, lr_schedule],
                                     validation_data=test_data_batch)
 
                 _, acc = model.evaluate(test_data_batch)
 
                 # average of last 5 epochs
-                acc_5 = np.mean(history.history['val_accuracy'][-5:])
+                # TODO delete this and erase its traces in the results file!!!
+                # acc_5 = np.mean(history.history['val_accuracy'][-5:])
 
                 res_tmp = {
                     'seed': seed,
                     'batch_size': batch_size,
                     'norm': norm_str,
-                    'accuracy_final': acc,
-                    'accuracy_5': acc_5
+                    'accuracy': acc,
                 }
 
                 res = res.append(res_tmp, ignore_index=True)

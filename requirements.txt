@@ -1,0 +1,6 @@
+numpy
+pandas
+matplotlib
+seaborn
+tensorflow==2.4.1
+tensorflow-datasets
