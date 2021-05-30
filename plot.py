@@ -12,6 +12,7 @@ def plot_results(fname="results.csv", resname="plot.png"):
         x="batch_size",
         y="error_rate",
         hue="norm",
+        hue_order=["Group Norm", "Batch Norm"],
         marker='o',
         data=df
     )
