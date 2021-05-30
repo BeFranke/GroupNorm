@@ -7,23 +7,13 @@ my results.
 For the answers to the theoretical questions and an explanation of my methodology, see "questions.pdf".
 
 ## Requirements
-### Automatic installation 
-#### Anaconda
-Using `conda`, it may be possible to re-create the environment for this project with 
-
-`conda env create -f environment.yml`
-
-This will create an environment called "GroupNorm_BFranke" that contains all packages necessary to run this project.
-However, depending on OS and hardware this may or may not work.
-
-#### pip
-
-run `pip install -r requirements.txt`
+### Automatic installation
+run `pip install -r requirements.txt` (tested for Python 3.8 on Linux)
 
 
 ### Manual installation
 
-- tensorflow (tested on version 2.4.1 on Linux)
+- tensorflow
 - tensorflow-datasets
 - pandas
 - matplotlib (for plot.py & reproduce.py)
@@ -31,8 +21,7 @@ run `pip install -r requirements.txt`
 
 ## Project Structure
 | File / Folder name | Description  |
-| ------------------ |----------- |
-| logs/              | tensorboard logs of the training. This directory will be empty in the submitted version, as the logs would have surpassed the maximum submission file size | 
+| ------------------ |----------- | 
 | models/            | trained models in keras format   |
 | hp.json            | results of the search for the best value of G |
 | hpopt.py           | script used to search for the best value of G |
@@ -42,6 +31,7 @@ run `pip install -r requirements.txt`
 | README.md          | this file |
 | questions.pdf      | PDF containing the answers to the theoretical questions and explanation of my methodology |
 | reproduce.py       | writes new results.csv by evaluating trained models |
+| requirements.txt   | requirements file for pip                           |
 | results.csv        | results of the evaluation                           |
 | train.py           | training script, contains importable model definition |
 

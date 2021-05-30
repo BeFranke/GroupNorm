@@ -2,6 +2,7 @@ import os
 
 import tensorflow as tf
 import pandas as pd
+import numpy as np
 
 from plot import plot_results
 
@@ -25,6 +26,10 @@ if __name__ == "__main__":
         seed = int(s.replace("S", ""))
         model = tf.keras.models.load_model(path)
 
+        # seed
+        np.random.seed(seed)
+        tf.random.set_seed(seed)
+
         test_data_batch = test_data.batch(batch_size)
 
         print(f"evaluating {folder}!")
@@ -39,4 +44,4 @@ if __name__ == "__main__":
 
     results_new.to_csv("results_reproduced.csv", index=False)
 
-    plot_results(fname="results_reproduced.csv")
+    plot_results(fname="results_reproduced.csv", resname="plot_reproduced.png")

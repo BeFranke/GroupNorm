@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 
 
-def plot_results(fname="results.csv"):
+def plot_results(fname="results.csv", resname="plot.png"):
     sns.set_theme()
     df = pd.read_csv(fname)
     df["error_rate"] = (1 - df["accuracy"]) * 100
@@ -23,7 +23,7 @@ def plot_results(fname="results.csv"):
     ax.get_xaxis().set_major_formatter(ScalarFormatter())
     ax.legend(title="Normalization Type")
     fig = plt.gcf()
-    fig.savefig("plot.png")
+    fig.savefig(resname)
     plt.show()
 
 

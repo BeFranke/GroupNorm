@@ -1,9 +1,12 @@
-from typing import Union
+from typing import Union, Dict, Any
 
 import tensorflow as tf
 
 
 class GroupNormalization(tf.keras.layers.Layer):
+    """
+    Group Normalization layer from Wu & He, Group Normalization, 2018
+    """
     def __init__(self,
                  groups: int = 8,
                  eps: float = 1e-5,
@@ -13,6 +16,17 @@ class GroupNormalization(tf.keras.layers.Layer):
                  beta_regularizer: Union[None, tf.keras.regularizers.Regularizer] = tf.keras.regularizers.L2(0.0001),
                  gamma_constraint: Union[None, tf.keras.constraints.Constraint] = None,
                  beta_constraint: Union[None, tf.keras.constraints.Constraint] = None):
+        """
+        :param groups: Number of groups that the input feature maps will be split in.
+                        Each group gets normalized separately
+        :param eps: Small constant to avoid division by zero
+        :param gamma_initializer: keras initializer for gamma (scale) term
+        :param beta_initializer: keras initializer for beta (bias) term
+        :param gamma_regularizer: keras regularizer for gamma (scale) term
+        :param beta_regularizer: keras regularizer for beta (bias) term
+        :param gamma_constraint: keras constraint for gamma (scale) term
+        :param beta_constraint: keras constraint for beta (bias) term
+        """
         super().__init__()
         self.eps = eps
         self.gamma = None
@@ -27,6 +41,9 @@ class GroupNormalization(tf.keras.layers.Layer):
         self._moment_axes = None
 
     def build(self, input_shape):
+        """
+        builds the layer, will be called automatically
+        """
         if tf.keras.backend.image_data_format() == "channels_first":
             N, C, H, W = input_shape
 
@@ -83,6 +100,12 @@ class GroupNormalization(tf.keras.layers.Layer):
 
     @tf.function
     def call(self, x: tf.Tensor, **kwargs):
+        """
+        forward pass through the layer
+        :param x: input tensor
+        :param kwargs: ignored
+        :return: group-wise normalized tensor x
+        """
         x = self.group(x)
 
         mean, var = tf.nn.moments(x, self._moment_axes, keepdims=True)
@@ -92,7 +115,10 @@ class GroupNormalization(tf.keras.layers.Layer):
 
         return x * self.gamma + self.beta
         
-    def get_config(self):
+    def get_config(self) -> Dict[str, Any]:
+        """
+        :return: config dictionary
+        """
         config = super().get_config()
         config.update({
             "groups": self.groups,

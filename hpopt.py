@@ -1,25 +1,30 @@
 import numpy as np
 import tensorflow as tf
-import json
+import pandas as pd
 
 from layer import GroupNormalization
 from train import build_model
+
+"""
+This is just a small script to test 3 different values of G on a random 10% validation cut of CIFAR-10
+results are written to hp.csv
+"""
 
 if __name__ == "__main__":
     # I deliberately left out group sizes that would transform GN layers into IN or LN
     Gs = [8, 4, 2]
 
     lr = 0.1
+    res = {'G': [],
+           'accuracy': []}
+    seed = 1
+    batch_size = 32
 
     (train_imgs, train_lbls), _ = tf.keras.datasets.cifar10.load_data()
 
-    train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls))
+    train_data = tf.data.Dataset.from_tensor_slices((train_imgs, train_lbls)).shuffle(60000, seed=seed)
     test_data = train_data.take(6000)
     train_data = train_data.skip(6000)
-
-    res = []
-    seed = 1
-    batch_size = 32
 
 
     for G in Gs:
@@ -39,19 +44,12 @@ if __name__ == "__main__":
         test_data_batch = test_data.batch(batch_size)
 
         # setting validation set = test set for convenience
-        history = model.fit(train_data_batch, epochs=50, callbacks=[lr_schedule],
+        history = model.fit(train_data_batch, epochs=100, callbacks=[lr_schedule],
                             validation_data=test_data_batch)
 
         _, acc = model.evaluate(test_data_batch)
 
-        res.append(acc)
+        res['G'].append(G)
+        res['accuracy'].append(acc)
 
-        with open("hp.json", "w+") as fp:
-            json.dump({'group_size': Gs, 'accuracy': res}, fp)
-
-    print("------------------------")
-    print("Optimization Results:")
-    print("groups: validation accuracy")
-    print("----------------------------")
-    for i, g in enumerate(Gs):
-        print(f"{g}: {res[i]} ")
+        pd.DataFrame(res).to_csv("hp.csv", index=False)

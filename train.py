@@ -15,7 +15,7 @@ def build_model(adapt_data: tf.Tensor,
                 norm: tf.keras.layers.Layer = tf.keras.layers.BatchNormalization,
                 lr: float = 0.001) -> tf.keras.Model:
     """
-    ResNet20 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=5)
+    ResNet20 for CIFAR-10 like described in https://arxiv.org/pdf/1512.03385.pdf, section 4.2 (here, n=3)
     Only deviation is that I use projection shortcuts when dimensions change (they only omitted it to have the same
     number of parameters as the non-residual baseline).
     :param adapt_data: training data to compute mean and variance for initial normalization
@@ -29,7 +29,7 @@ def build_model(adapt_data: tf.Tensor,
         'padding': 'same',
         'kernel_regularizer': tf.keras.regularizers.L2(0.0001),
         'bias_regularizer': tf.keras.regularizers.L2(0.0001),
-        # bias is set to False, as Batch Norm already supplies a bias
+        # bias is set to False, as Batch Norm / group Norm already supplies a bias
         # see for example https://stackoverflow.com/questions/45134831/is-bias-necessarily-need-at-colvolution-layer
         # or https://discuss.pytorch.org/t/why-does-the-resnet-model-given-by-pytorch-omit-biases-from-the-convolutional-layer/10990
         'use_bias': False,
@@ -203,10 +203,6 @@ if __name__ == "__main__":
                                     validation_data=test_data_batch)
 
                 _, acc = model.evaluate(test_data_batch)
-
-                # average of last 5 epochs
-                # TODO delete this and erase its traces in the results file!!!
-                # acc_5 = np.mean(history.history['val_accuracy'][-5:])
 
                 res_tmp = {
                     'seed': seed,
