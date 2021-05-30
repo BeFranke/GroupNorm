@@ -140,7 +140,10 @@ if __name__ == "__main__":
         # clear logdir
         shutil.rmtree("logs", ignore_errors=True)
         os.mkdir("logs")
-        os.rename("results.csv", "results.csv.old")
+        try:
+            os.rename("results.csv", "results.csv.old")
+        except:
+            pass
 
     ((train_imgs, train_lbls), (test_imgs, test_lbls)) = tf.keras.datasets.cifar10.load_data()
 
