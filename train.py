@@ -131,11 +131,6 @@ if __name__ == "__main__":
     # LR like described in (https://arxiv.org/pdf/1512.03385.pdf)
     get_lr = lambda batch_size: 0.1 * batch_size / 32
 
-    # was intended for planned 4 GPU training on BWunicluster, however due to the enormous waiting times I ended up
-    # training on my own computer with a single GPU
-    # this does not break single-GPU training, therefore I just left it here
-    strategy = tf.distribute.MirroredStrategy()
-
     if args.restart:
         # clear logdir
         shutil.rmtree("logs", ignore_errors=True)
@@ -195,8 +190,7 @@ if __name__ == "__main__":
                 np.random.seed(seed)
                 tf.random.set_seed(seed)
 
-                with strategy.scope():
-                    model = build_model(train_imgs, seed=seed, norm=norm, lr=lr)
+                model = build_model(train_imgs, seed=seed, norm=norm, lr=lr)
 
                 train_data_batch = train_data.batch(batch_size)
                 test_data_batch = test_data.batch(batch_size)
